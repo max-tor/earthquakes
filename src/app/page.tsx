@@ -1,101 +1,201 @@
-import Image from "next/image";
+"use client";
+
+import { useQuery, useMutation, gql } from '@apollo/client';
+import client from './apollo-client';
+import { useState } from 'react';
+
+const GET_EARTHQUAKES = gql`
+  query GetEarthquakes {
+    items {
+      id
+      location
+      magnitude
+      date
+    }
+  }
+`;
+
+const CREATE_EARTHQUAKE = gql`
+  mutation CreateEarthquake($location: String!, $magnitude: Float!, $date: String!) {
+    addItem(location: $location, magnitude: $magnitude, date: $date) {
+      id
+      location
+      magnitude
+      date
+    }
+  }
+`;
+
+const UPDATE_EARTHQUAKE = gql`
+  mutation UpdateEarthquake($id: ID!, $location: String!, $magnitude: Float!, $date: String!) {
+    updateItem(id: $id, location: $location, magnitude: $magnitude, date: $date) {
+      id
+      location
+      magnitude
+      date
+    }
+  }
+`;
+
+const DELETE_EARTHQUAKE = gql`
+  mutation DeleteEarthquake($id: ID!) {
+    deleteItem(id: $id) {
+      id
+      location
+      magnitude
+      date
+    }
+  }
+`;
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { loading, error, data } = useQuery(GET_EARTHQUAKES, { client });
+  const [addItem] = useMutation(CREATE_EARTHQUAKE, { client, refetchQueries: [{ query: GET_EARTHQUAKES }] });
+  const [updateItem] = useMutation(UPDATE_EARTHQUAKE, { client, refetchQueries: [{ query: GET_EARTHQUAKES }] });
+  const [deleteItem] = useMutation(DELETE_EARTHQUAKE, { client, refetchQueries: [{ query: GET_EARTHQUAKES }] });
+  const [location, setLocation] = useState('');
+  const [magnitude, setMagnitude] = useState('');
+  const [date, setDate] = useState('');
+  const [editItemId, setEditItemId] = useState(null);
+  const [editLocation, setEditLocation] = useState('');
+  const [editMagnitude, setEditMagnitude] = useState('');
+  const [editDate, setEditDate] = useState('');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+  const handleCreateEarthquake = async (e) => {
+    e.preventDefault();
+    if (location.trim() === '' || magnitude.trim() === '' || date.trim() === '') return;
+    await addItem({ variables: { location, magnitude: parseFloat(magnitude), date } });
+    setLocation('');
+    setMagnitude('');
+    setDate('');
+  };
+
+  const handleUpdateEarthquake = async (e) => {
+    e.preventDefault();
+    if (editLocation.trim() === '' || editMagnitude.trim() === '' || editDate.trim() === '') return;
+    await updateItem({ variables: { id: editItemId, location: editLocation, magnitude: parseFloat(editMagnitude), date: editDate } });
+    setEditItemId(null);
+    setEditLocation('');
+    setEditMagnitude('');
+    setEditDate('');
+  };
+
+  const handleDeleteEarthquake = async (id) => {
+    await deleteItem({ variables: { id } });
+  };
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <div className="grid items-center justify-items-center min-h-screen p-8 pb-20 gap-16">
+      <main className="flex flex-col gap-8 row-start-2 items-center">
+        <h1 className="text-3xl">Earthquakes catalogue from 1970 to 2014</h1>
+        <form onSubmit={handleCreateEarthquake} className="flex flex-col gap-4">
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Enter location"
+            className="border p-2 rounded text-black"
+          />
+          <input
+            type="number"
+            value={magnitude}
+            onChange={(e) => setMagnitude(e.target.value)}
+            placeholder="Enter magnitude"
+            className="border p-2 rounded text-black"
+          />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            placeholder="Enter date"
+            className="border p-2 rounded text-black"
+          />
+          <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+            Add Item
+          </button>
+        </form>
+
+        <table className="table-auto border-collapse border border-gray-400">
+          <thead>
+            <tr>
+              <th className="border border-gray-300 px-4 py-2">Location</th>
+              <th className="border border-gray-300 px-4 py-2">Magnitude</th>
+              <th className="border border-gray-300 px-4 py-2">Date</th>
+              <th className="border border-gray-300 px-4 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.items.map((item) => (
+              <tr key={item.id}>
+                <td className="border border-gray-300 px-4 py-2">{item.location}</td>
+                <td className="border border-gray-300 px-4 py-2">{item.magnitude}</td>
+                <td className="border border-gray-300 px-4 py-2">{new Date(item.date).toLocaleDateString()}</td>
+                <td className="border border-gray-300 px-4 py-2">
+                  <button
+                    onClick={() => {
+                      setEditItemId(item.id);
+                      setEditLocation(item.location);
+                      setEditMagnitude(item.magnitude.toString());
+                      setEditDate(item.date);
+                    }}
+                    className="ml-2 bg-yellow-500 text-white p-1 rounded"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEarthquake(item.id)}
+                    className="ml-2 bg-red-500 text-white p-1 rounded"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {editItemId && (
+          <div className="fixed w-1/2 h-1/2">
+            <form onSubmit={handleUpdateEarthquake} className="flex flex-col gap-4 px-32 py-8 bg-[#1e293b]">
+              <input
+                type="text"
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                placeholder="Enter new location"
+                className="border p-2 rounded text-black"
+              />
+              <input
+                type="number"
+                value={editMagnitude}
+                onChange={(e) => setEditMagnitude(e.target.value)}
+                placeholder="Enter new magnitude"
+                className="border p-2 rounded text-black"
+              />
+              <input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                placeholder="Enter new date"
+                className="border p-2 rounded text-black"
+              />
+              <button type="submit" className="bg-green-500 text-white p-2 rounded">
+                Update Item
+              </button>
+              <button onClick={() => {
+                setEditItemId(null);
+                setEditLocation('');
+                setEditMagnitude('');
+                setEditDate('');
+              }} className="bg-gray-500 text-white p-2 rounded">
+                Cancel
+              </button>
+            </form>            
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
